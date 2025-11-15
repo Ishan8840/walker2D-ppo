@@ -4,9 +4,10 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from torch.distributions import Normal
+from gait_wrapper import GaitWrapper
 
 
-env = gym.make("BipedalWalker-v3", hardcore=False, render_mode=None)
+env = env = GaitWrapper(gym.make("BipedalWalker-v3", hardcore=False, render_mode=None))
 
 
 class PolicyNetwork(nn.Module):
@@ -70,7 +71,32 @@ def compute_gae(values, rewards, gamma=0.99, lam=0.95):
     return advantages, returns
 
 
-state_dim = env.observation_space.shape[0]
+def gait_reward(obs, phase_left, phase_right, d_lower=-0.3):
+    left_contact  = obs[8]
+    right_contact = obs[9]
+
+    reward = 0.0
+
+    # stance when phase >= d_lower
+    if phase_left >= d_lower and left_contact == 0:
+        reward -= 0.5
+
+    # swing when phase <= -d_lower
+    if phase_left <= -d_lower and left_contact == 1:
+        reward -= 0.5
+
+    # same for right
+    if phase_right >= d_lower and right_contact == 0:
+        reward -= 0.5
+
+    if phase_right <= -d_lower and right_contact == 1:
+        reward -= 0.5
+
+    return reward
+
+
+
+state_dim = 26
 action_dim = env.action_space.shape[0]
 
 actor = PolicyNetwork(state_dim, action_dim)
@@ -103,9 +129,10 @@ for episode in range(n_episodes):
         log_prob = dist.log_prob(raw_action) - torch.log(1 - action.pow(2) + 1e-6)
         log_prob = log_prob.sum(dim=-1)
 
-        next_state, reward, terminated, truncated, _ = env.step(action.detach().numpy()[0])
+        next_state, reward, terminated, truncated, info = env.step(action.detach().numpy()[0])
 
         value = critic(state_tensor).item()
+        reward += gait_reward(next_state, info["phase_left"], info["phase_right"])
 
         states.append(state)
         actions.append(raw_action.detach().numpy()[0])
@@ -160,11 +187,12 @@ for episode in range(n_episodes):
             critic_loss.backward()
             critic_optimizer.step()
 
-    if episode % 5 == 0:
+    if episode % 10 == 0:
         print(f"Episode: {episode}, reward: {sum(rewards)}")
 
 
-env = gym.make("BipedalWalker-v3", hardcore=False, render_mode="human")
+
+env = GaitWrapper(gym.make("BipedalWalker-v3", hardcore=False, render_mode="human"))
 
 for episode in range(10):
     state = env.reset()[0]
