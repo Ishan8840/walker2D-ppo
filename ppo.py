@@ -71,26 +71,32 @@ def compute_gae(values, rewards, gamma=0.99, lam=0.95):
     return advantages, returns
 
 
-def gait_reward(obs, phase_left, phase_right, d_lower=-0.4):
+def gait_reward(obs, phase_left, phase_right, d_lower=0.3):
     left_contact  = obs[8]
     right_contact = obs[9]
 
     reward = 0.0
 
     # stance when phase >= d_lower
-    if phase_left >= d_lower and left_contact == 0:
-        reward -= 0.5
+    if phase_left > d_lower and left_contact == 0:
+        reward -= 0.2
 
     # swing when phase <= -d_lower
-    if phase_left <= -d_lower and left_contact == 1:
-        reward -= 0.5
+    if phase_left < -d_lower and left_contact == 1:
+        reward -= 0.2
 
     # same for right
-    if phase_right >= d_lower and right_contact == 0:
-        reward -= 0.5
+    if phase_right > d_lower and right_contact == 0:
+        reward -= 0.2
 
-    if phase_right <= -d_lower and right_contact == 1:
-        reward -= 0.5
+    if phase_right < -d_lower and right_contact == 1:
+        reward -= 0.2
+
+    if left_contact != right_contact:
+        reward += 0.1
+    else:
+        reward -= 0.05
+
 
     return reward
 
@@ -105,7 +111,7 @@ critic = ValueNetwork(state_dim)
 actor_optimizer = optim.Adam(actor.parameters(), lr=1e-4)
 critic_optimizer = optim.Adam(critic.parameters(), lr=1e-3)
 
-n_steps = 2000
+n_steps = 1600
 batch_size = 64
 n_epochs = 10
 gamma = 0.99

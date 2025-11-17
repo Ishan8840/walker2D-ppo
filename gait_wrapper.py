@@ -25,7 +25,7 @@ class GaitWrapper(gym.Wrapper):
         # left: phase offset = 0
         # right: phase offset = 0.5 (opposite)
         phase_left  = math.sin(2 * math.pi * (self.t / self.T + 0.0))
-        phase_right = math.sin(2 * math.pi * (self.t / self.T + 1.0))
+        phase_right = math.sin(2 * math.pi * (self.t / self.T + 0.5))
 
         # original step
         obs, reward, terminated, truncated, info = self.env.step(action)
